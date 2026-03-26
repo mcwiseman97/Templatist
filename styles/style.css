@@ -19,6 +19,8 @@
     box-sizing: border-box;
 }
 
+[hidden] { display: none !important; }
+
 body {
     background-color: var(--bg-warm);
     font-family: 'Inter', sans-serif;
@@ -173,6 +175,286 @@ main {
     grid-column: span 3;
     text-align: center;
     background-color: #F3F1F8; 
+}
+
+/* --- Services Section --- */
+#services {
+    width: 100%;
+    margin-bottom: 60px;
+}
+
+.section-heading {
+    font-family: 'Playfair Display', serif;
+    font-size: 2rem;
+    color: var(--primary-indigo);
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+}
+
+.service-card {
+    background: var(--card-bg);
+    padding: 45px;
+    border-radius: 24px;
+    border: 1px solid rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transition: var(--transition-smooth);
+}
+
+.service-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.07);
+    border-color: var(--accent-coral);
+}
+
+.service-icon {
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.service-card h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem;
+    color: var(--primary-indigo);
+}
+
+.service-card p {
+    color: var(--text-light);
+    font-size: 0.95rem;
+}
+
+.service-features {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 4px 0;
+}
+
+.service-features li {
+    font-size: 0.9rem;
+    color: var(--text-main);
+    padding-left: 20px;
+    position: relative;
+}
+
+.service-features li::before {
+    content: "→";
+    position: absolute;
+    left: 0;
+    color: var(--accent-coral);
+    font-weight: 600;
+}
+
+.redeem-button {
+    display: inline-block;
+    background-color: var(--primary-indigo);
+    color: white;
+    padding: 14px 28px;
+    border-radius: 50px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    text-align: center;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(75, 0, 130, 0.25);
+    transition: var(--transition-smooth);
+    margin-top: auto;
+    align-self: flex-start;
+}
+
+.redeem-button:hover {
+    background-color: var(--accent-coral);
+    transform: translateY(-2px);
+}
+
+/* --- Redeem Page --- */
+#redeem-hero {
+    background-color: var(--primary-indigo);
+    color: white;
+    padding: 80px 60px;
+    border-radius: 30px;
+    margin-bottom: 40px;
+    text-align: center;
+    width: 100%;
+    box-shadow: 0 20px 40px rgba(75, 0, 130, 0.15);
+}
+
+#redeem-hero h2 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    margin-bottom: 20px;
+    color: var(--accent-coral);
+}
+
+.redeem-container {
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto 80px;
+}
+
+.redeem-card {
+    background: var(--card-bg);
+    padding: 50px;
+    border-radius: 24px;
+    border: 1px solid rgba(0,0,0,0.05);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.05);
+}
+
+.redeem-card h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem;
+    color: var(--primary-indigo);
+    margin-bottom: 6px;
+}
+
+.redeem-subtitle {
+    color: var(--text-light);
+    font-size: 0.9rem;
+    margin-bottom: 32px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 24px;
+}
+
+.form-group label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-main);
+}
+
+.form-group input {
+    padding: 14px 16px;
+    border: 1.5px solid rgba(0,0,0,0.12);
+    border-radius: 12px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    color: var(--text-main);
+    background: var(--bg-warm);
+    transition: border-color 0.2s ease;
+    outline: none;
+}
+
+.form-group input:focus {
+    border-color: var(--primary-indigo);
+    background: white;
+}
+
+.field-hint {
+    font-size: 0.8rem;
+    color: var(--text-light);
+    line-height: 1.4;
+}
+
+.form-error {
+    color: #c0392b;
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+    min-height: 1.2em;
+}
+
+.submit-button {
+    width: 100%;
+    padding: 16px;
+    background-color: var(--primary-indigo);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    font-family: 'Inter', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(75, 0, 130, 0.25);
+    transition: var(--transition-smooth);
+}
+
+.submit-button:hover:not(:disabled) {
+    background-color: var(--accent-coral);
+    transform: translateY(-2px);
+}
+
+.submit-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* --- Status Panels (Loading / Success / Error) --- */
+.status-panel {
+    background: var(--card-bg);
+    padding: 60px 50px;
+    border-radius: 24px;
+    border: 1px solid rgba(0,0,0,0.05);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.05);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid rgba(75, 0, 130, 0.15);
+    border-top-color: var(--primary-indigo);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.status-message {
+    font-size: 1rem;
+    color: var(--text-light);
+    max-width: 400px;
+}
+
+.status-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem;
+    color: var(--primary-indigo);
+}
+
+.status-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    font-weight: 700;
+}
+
+.success-icon {
+    background-color: #e8f8f1;
+    color: #27ae60;
+}
+
+.error-icon {
+    background-color: #fdecea;
+    color: #c0392b;
+}
+
+.secondary-link {
+    font-size: 0.9rem;
+    color: var(--text-light);
+    text-decoration: underline;
 }
 
 /* --- Footer --- */

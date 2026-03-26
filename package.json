@@ -1,0 +1,13 @@
+{
+  "name": "templatist",
+  "version": "1.0.0",
+  "description": "Templatist – Architecting the Shortcut",
+  "private": true,
+  "scripts": {
+    "dev": "netlify dev"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {}
+}

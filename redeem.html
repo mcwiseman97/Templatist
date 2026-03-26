@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redeem Service | Templatist</title>
+    <meta name="description" content="Redeem your Canvas → Notion Semester Builder service.">
+    <meta name="author" content="Michael Wiseman">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles/style.css">
+</head>
+<body>
+    <header>
+        <div class="logo-area">
+            <img src="images/TemplatistLogo.png" alt="Templatist Logo">
+            <h1>Templatist</h1>
+        </div>
+        <nav>
+            <a href="index.html" class="nav-link">Home</a>
+            <a href="index.html#services" class="nav-link">Services</a>
+            <a href="#" class="nav-link">Custom Work</a>
+            <a href="index.html#services" class="cta-button">Get Started</a>
+        </nav>
+    </header>
+
+    <main>
+        <section id="redeem-hero">
+            <div class="hero-content">
+                <h2>Canvas → Notion Builder</h2>
+                <p class="mission-statement">Enter your credentials below and we'll build your semester dashboard in Notion — automatically.</p>
+            </div>
+        </section>
+
+        <div class="redeem-container">
+            <!-- Form Panel -->
+            <div id="redeem-form-panel">
+                <div class="redeem-card">
+                    <h3>Connect Your Accounts</h3>
+                    <p class="redeem-subtitle">Your credentials are used once and never stored.</p>
+
+                    <form id="redeem-form" novalidate>
+                        <div class="form-group">
+                            <label for="canvas-token">Canvas API Token</label>
+                            <input
+                                type="password"
+                                id="canvas-token"
+                                name="canvasToken"
+                                placeholder="Paste your Canvas access token"
+                                autocomplete="off"
+                                required
+                            />
+                            <span class="field-hint">
+                                Generate in Canvas → Account → Settings → Approved Integrations → New Access Token
+                            </span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="canvas-domain">Canvas School Domain</label>
+                            <input
+                                type="text"
+                                id="canvas-domain"
+                                name="canvasDomain"
+                                placeholder="yourschool.instructure.com"
+                                autocomplete="off"
+                                required
+                            />
+                            <span class="field-hint">
+                                The domain you use to log in to Canvas (e.g. byupw.instructure.com)
+                            </span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="notion-page-id">Notion Page ID</label>
+                            <input
+                                type="text"
+                                id="notion-page-id"
+                                name="notionPageId"
+                                placeholder="32-character ID from your Notion page URL"
+                                autocomplete="off"
+                                required
+                            />
+                            <span class="field-hint">
+                                Open your Notion page → copy the last part of the URL (the long string after the page name)
+                            </span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="notion-secret">Notion Integration Secret</label>
+                            <input
+                                type="password"
+                                id="notion-secret"
+                                name="notionSecret"
+                                placeholder="secret_..."
+                                autocomplete="off"
+                                required
+                            />
+                            <span class="field-hint">
+                                Create an integration at <strong>notion.so/my-integrations</strong>, then share your target page with it.
+                            </span>
+                        </div>
+
+                        <div id="form-error" class="form-error" aria-live="polite"></div>
+
+                        <button type="submit" class="submit-button" id="submit-btn">
+                            Build My Notion Dashboard
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Loading Panel (hidden by default) -->
+            <div id="loading-panel" class="status-panel" hidden>
+                <div class="spinner"></div>
+                <p id="loading-message" class="status-message">Connecting to Canvas…</p>
+            </div>
+
+            <!-- Success Panel (hidden by default) -->
+            <div id="success-panel" class="status-panel" hidden>
+                <div class="status-icon success-icon">✓</div>
+                <h3 class="status-title">Your Notion Dashboard is Ready!</h3>
+                <p id="success-message" class="status-message"></p>
+                <a id="notion-link" href="#" target="_blank" rel="noopener" class="redeem-button">
+                    Open in Notion
+                </a>
+                <a href="index.html" class="secondary-link">Back to Templatist</a>
+            </div>
+
+            <!-- Error Panel (hidden by default) -->
+            <div id="error-panel" class="status-panel" hidden>
+                <div class="status-icon error-icon">✕</div>
+                <h3 class="status-title">Something went wrong</h3>
+                <p id="error-message" class="status-message"></p>
+                <button class="redeem-button" id="try-again-btn">Try Again</button>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <p>&copy; 2026 Templatist. Architecting the Shortcut.</p>
+            <nav class="footer-nav">
+                <a href="#">Privacy</a>
+                <a href="#">Terms</a>
+            </nav>
+        </div>
+    </footer>
+
+    <script src="js/redeem.js"></script>
+</body>
+</html>
