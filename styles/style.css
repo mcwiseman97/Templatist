@@ -1,0 +1,230 @@
+/* Project: Templatist 
+   Design: Creative Efficiency (Grid Breakpoint Fix)
+*/
+
+:root {
+    --primary-indigo: #4B0082;
+    --accent-coral: #FF7F50;
+    --bg-warm: #FDFBF9;
+    --card-bg: #FFFFFF;
+    --text-main: #2D2D2D;
+    --text-light: #666666;
+    --transition-smooth: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* --- Base Resets --- */
+* {
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--bg-warm);
+    font-family: 'Inter', sans-serif;
+    color: var(--text-main);
+    line-height: 1.6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* --- Header & Navigation --- */
+header {
+    width: 90%;
+    max-width: 1200px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 30px 0;
+}
+
+.logo-area {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+header img {
+    width: 60px;
+    height: auto;
+    max-height: 60px;
+    object-fit: contain;
+    display: block;
+}
+
+header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.8rem;
+    color: var(--primary-indigo);
+    letter-spacing: -1px;
+}
+
+nav {
+    display: flex;
+    gap: 30px;
+    align-items: center;
+}
+
+.nav-link {
+    text-decoration: none;
+    color: var(--text-main);
+    font-weight: 500;
+    font-size: 0.9rem;
+    transition: var(--transition-smooth);
+}
+
+.nav-link:hover {
+    color: var(--accent-coral);
+}
+
+.cta-button {
+    text-decoration: none;
+    background-color: var(--primary-indigo);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 50px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    box-shadow: 0 4px 14px 0 rgba(75, 0, 130, 0.25);
+    transition: var(--transition-smooth);
+}
+
+.cta-button:hover {
+    background-color: var(--accent-coral);
+    transform: translateY(-2px);
+}
+
+/* --- Main Content Container --- */
+main {
+    width: 90%;
+    max-width: 1200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* --- Hero Section --- */
+#hero {
+    background-color: var(--primary-indigo);
+    color: white;
+    padding: 100px 60px;
+    border-radius: 30px;
+    margin-bottom: 40px;
+    text-align: center;
+    width: 100%;
+    box-shadow: 0 20px 40px rgba(75, 0, 130, 0.15);
+}
+
+#hero h2 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    margin-bottom: 25px;
+    color: var(--accent-coral);
+}
+
+.mission-statement {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.6rem;
+    max-width: 850px;
+    margin: 0 auto;
+    line-height: 1.25;
+    text-wrap: balance;
+}
+
+/* --- Grid System --- */
+.grid-container {
+    display: grid;
+    /* Forces 3 columns by default */
+    grid-template-columns: repeat(3, 1fr); 
+    gap: 25px;
+    width: 100%;
+    margin-bottom: 80px;
+}
+
+.card {
+    background: var(--card-bg);
+    padding: 45px;
+    border-radius: 24px;
+    border: 1px solid rgba(0,0,0,0.03);
+    transition: var(--transition-smooth);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.06);
+    border-color: var(--accent-coral);
+}
+
+.card h2 {
+    font-size: 1.3rem;
+    margin-bottom: 15px;
+    color: var(--primary-indigo);
+    font-family: 'Playfair Display', serif;
+}
+
+/* --- Wide Cards --- */
+.wide, #latest-card {
+    grid-column: span 3;
+    text-align: center;
+    background-color: #F3F1F8; 
+}
+
+/* --- Footer --- */
+footer {
+    width: 100%;
+    background: white;
+    padding: 50px 0;
+    border-top: 1px solid rgba(0,0,0,0.05);
+}
+
+.footer-content {
+    width: 90%;
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+}
+
+/* --- THE BREAKPOINT FIX --- */
+
+/* At 1024px and below, we switch to a single column (full-width cards) */
+@media (max-width: 1024px) {
+    .grid-container { 
+        grid-template-columns: 1fr; /* Forces single column */
+    }
+    
+    /* Resets spans to only take up the 1 column available */
+    .wide, #latest-card { 
+        grid-column: span 1; 
+    }
+
+    .mission-statement { 
+        font-size: 2.2rem; 
+    }
+}
+
+/* Specific styling for smaller mobile devices */
+@media (max-width: 768px) {
+    .mission-statement { 
+        font-size: 1.8rem; 
+    }
+    
+    header { 
+        flex-direction: column; 
+        gap: 20px; 
+    }
+    
+    header img { 
+        width: 50px; 
+    }
+
+    #hero {
+        padding: 60px 30px;
+    }
+}
