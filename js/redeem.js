@@ -58,9 +58,12 @@
       "Validating Canvas credentials…",
       "Validating Notion credentials…",
       "Fetching your courses and assignments…",
-      "Building your Notion workspace…",
-      "Creating assignment pages…",
-      "Almost there…",
+      "Building your Semester Hub page…",
+      "Creating course databases…",
+      "Populating assignments…",
+      "Building course note pages…",
+      "Generating your weekly planner…",
+      "Almost done — hang tight…",
     ];
     let stepIndex = 0;
     const stepInterval = setInterval(() => {

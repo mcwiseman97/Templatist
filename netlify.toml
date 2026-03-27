@@ -5,5 +5,10 @@
 [functions]
   node_bundler = "esbuild"
 
+[functions."canvas-to-notion"]
+  timeout = 26
+
 [dev]
+  framework = "#static"
+  publish = "."
   port = 8080
