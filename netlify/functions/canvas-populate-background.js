@@ -110,6 +110,30 @@ async function getAllAssignments(domain, token, courseId) {
 
 // ─── Data transforms ──────────────────────────────────────────────────────────
 
+function assignmentType(a) {
+  const types = a.submission_types || [];
+  if (types.includes("online_quiz")) return "Quiz";
+  if (types.includes("discussion_topic")) return "Discussion";
+  if (types.every((t) => t === "none") || types.length === 0) {
+    if (/final/i.test(a.name   || "")) return "Exam";
+    if (/midterm/i.test(a.name || "")) return "Exam";
+    if (/quiz/i.test(a.name    || "")) return "Quiz";
+    if (/lab/i.test(a.name     || "")) return "Lab";
+    if (/project/i.test(a.name || "")) return "Project";
+    return "Other";
+  }
+  return "Assignment";
+}
+
+function isExam(a) { const t = assignmentType(a); return t === "Quiz" || t === "Exam"; }
+
+function priority(pts) {
+  if (pts == null) return "Medium";
+  if (pts >= 100)  return "High";
+  if (pts >= 50)   return "Medium";
+  return "Low";
+}
+
 function shortDate(iso) {
   if (!iso) return "No date";
   return new Date(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
@@ -402,7 +426,8 @@ exports.handler = async (event) => {
 
   const {
     canvasToken, canvasDomain, notionSecret,
-    classesId, weekPlanId, dailyPlannersId, studyRoomId, graduationId, notesId,
+    classesId, assignmentsDbId, examsDbId,
+    weekPlanId, dailyPlannersId, studyRoomId, graduationId, notesId,
     courses,
   } = body;
 
@@ -414,7 +439,7 @@ exports.handler = async (event) => {
   const secret = notionSecret.trim();
 
   try {
-    // ── 1. Fetch ALL semester assignments (for course notes + week planners) ──
+    // ── 1. Fetch ALL semester assignments in parallel ──────────────────────
     const assignmentsByCourse = await Promise.all(
       courses.map((c) => getAllAssignments(domain, token, c.id))
     );
@@ -431,14 +456,41 @@ exports.handler = async (event) => {
       return da - db;
     });
 
-    // ── 2. Per-course note pages ──────────────────────────────────────────
+    // ── 2. Populate Assignment Tracker DB ─────────────────────────────────
+    await batchRun(allAssignments, 3, 400, ({ course: c, assignment: a }) => {
+      const props = {
+        Name:     { title:     [{ text: { content: a.name || "Unnamed" } }] },
+        Course:   { rich_text: [{ text: { content: c.name || "" } }] },
+        Type:     { select:    { name: assignmentType(a) } },
+        Points:   { number:    a.points_possible ?? null },
+        Status:   { select:    { name: "Not Started" } },
+        Priority: { select:    { name: priority(a.points_possible) } },
+      };
+      if (a.due_at) props["Due Date"] = { date: { start: a.due_at.replace("Z", "+00:00") } };
+      return createDbRow(secret, assignmentsDbId, props);
+    });
+
+    // ── 3. Populate Exams & Quizzes DB ────────────────────────────────────
+    const exams = allAssignments.filter(({ assignment: a }) => isExam(a));
+    await batchRun(exams, 3, 400, ({ course: c, assignment: a }) => {
+      const props = {
+        Name:   { title:     [{ text: { content: a.name || "Unnamed" } }] },
+        Course: { rich_text: [{ text: { content: c.name || "" } }] },
+        Type:   { select:    { name: assignmentType(a) === "Quiz" ? "Quiz" : "Midterm" } },
+        Status: { select:    { name: "Upcoming" } },
+      };
+      if (a.due_at) props["Date"] = { date: { start: a.due_at.replace("Z", "+00:00") } };
+      return createDbRow(secret, examsDbId, props);
+    });
+
+    // ── 4. Per-course note pages ──────────────────────────────────────────
     await batchRun(courses, 2, 450, (course, _i) => {
       const idx    = courses.indexOf(course);
       const blocks = courseNoteBlocks(course, assignmentsByCourse[idx] || [], domain);
       return createPage(secret, classesId, course.name || "Course", "📖", blocks);
     });
 
-    // ── 3. Per-week planner pages (full semester) ─────────────────────────
+    // ── 5. Per-week planner pages (full semester) ─────────────────────────
     const weeks = getSemesterWeeks(courses);
     await batchRun(weeks, 2, 500, ({ sunday, weekNum }) => {
       const weekAssignments = assignmentsForWeek(allAssignments, sunday);
@@ -446,7 +498,7 @@ exports.handler = async (event) => {
       return createPage(secret, weekPlanId, `Week ${weekNum}  ·  ${weekRange(sunday)}`, "📅", blocks);
     });
 
-    // ── 4. Daily planner pages (next 20 weekdays) ─────────────────────────
+    // ── 6. Daily planner pages (next 20 weekdays) ─────────────────────────
     const weekdays = [];
     const cursor = new Date();
     cursor.setHours(0, 0, 0, 0);
@@ -462,7 +514,7 @@ exports.handler = async (event) => {
       return createPage(secret, dailyPlannersId, label, "📆", dailyPlannerBlocks(label));
     });
 
-    // ── 5. Build out static section pages ────────────────────────────────
+    // ── 7. Build out static section pages ────────────────────────────────
     await appendBlocks(secret, studyRoomId,  studyRoomBlocks());
     await sleep(400);
     await appendBlocks(secret, graduationId, graduationBlocks());
