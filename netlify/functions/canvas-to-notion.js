@@ -253,7 +253,7 @@ exports.handler = async (event) => {
     const termName  = courses.find((c) => c.term?.name)?.term?.name || "Semester";
 
     // ── 3. Create Semester Hub page (empty shell) ─────────────────────────────
-    const hubId = await createPage(secret, pageId, `🌸 ${termName} Hub`, "🌸");
+    const hubId = await createPage(secret, pageId, `${termName} Hub`, "🌸");
 
     // ── 4. Create all 8 sub-pages (capture IDs for navigation mentions) ───────
     const [
@@ -261,24 +261,24 @@ exports.handler = async (event) => {
       dailyPlannersId, calendarId, studyRoomId,
       graduationId, notesId,
     ] = await Promise.all([
-      createPage(secret, hubId, "📚 Classes",          "📚", [callout("Your per-course note pages will appear here as they're built.", "⏳", "gray_background")]),
-      createPage(secret, hubId, "📝 Assignments",      "📝", [callout("Your assignment and exam databases will appear here as they're built.", "⏳", "gray_background")]),
-      createPage(secret, hubId, "📅 Week Plan",        "📅", [callout("Your weekly planner pages will appear here as they're built.", "⏳", "gray_background")]),
-      createPage(secret, hubId, "📆 Daily Planners",   "📆", [callout("Your daily planner pages will appear here as they're built.", "⏳", "gray_background")]),
-      createPage(secret, hubId, "🗓️ Monthly Calendar", "🗓️", [
+      createPage(secret, hubId, "Classes",          "📚", [callout("Your per-course note pages will appear here as they're built.", "⏳", "gray_background")]),
+      createPage(secret, hubId, "Assignments",      "📝", [callout("Your assignment and exam databases will appear here as they're built.", "⏳", "gray_background")]),
+      createPage(secret, hubId, "Week Plan",        "📅", [callout("Your weekly planner pages will appear here as they're built.", "⏳", "gray_background")]),
+      createPage(secret, hubId, "Daily Planners",   "📆", [callout("Your daily planner pages will appear here as they're built.", "⏳", "gray_background")]),
+      createPage(secret, hubId, "Monthly Calendar", "🗓️", [
         callout("To see your assignments on a monthly calendar:", "📅", "blue_background"),
-        p("1. Open the 📝 Assignments page"),
+        p("1. Open the Assignments page"),
         p("2. Click '+ Add a view' on the Assignment Tracker database"),
         p("3. Choose 'Calendar' → set date field to 'Due Date'"),
         p("Your full semester will appear as a visual calendar instantly."),
       ]),
-      createPage(secret, hubId, "📖 Study Room",       "📖"),
-      createPage(secret, hubId, "🎓 Graduation Path",  "🎓"),
-      createPage(secret, hubId, "📓 Notes",            "📓"),
+      createPage(secret, hubId, "Study Room",       "📖"),
+      createPage(secret, hubId, "Graduation Path",  "🎓"),
+      createPage(secret, hubId, "Notes",            "📓"),
     ]);
 
     // ── 5. Create Courses gallery database (child of hub, with cover images) ──
-    const coursesDbId = await createDatabase(secret, hubId, "📚 All Courses", {
+    const coursesDbId = await createDatabase(secret, hubId, "All Courses", {
       Name:          { title: {} },
       "Course Code": { rich_text: {} },
       Instructor:    { rich_text: {} },
@@ -290,7 +290,7 @@ exports.handler = async (event) => {
     });
 
     // ── 6. Create Assignments + Exams databases under Assignments sub-page ────
-    const assignmentsDbId = await createDatabase(secret, assignmentsPageId, "📝 Assignment Tracker", {
+    const assignmentsDbId = await createDatabase(secret, assignmentsPageId, "Assignment Tracker", {
       Name:       { title: {} },
       Course:     { rich_text: {} },
       "Due Date": { date: {} },
@@ -305,7 +305,7 @@ exports.handler = async (event) => {
       Notes: { rich_text: {} },
     });
 
-    const examsDbId = await createDatabase(secret, assignmentsPageId, "🎯 Exams & Quizzes", {
+    const examsDbId = await createDatabase(secret, assignmentsPageId, "Exams & Quizzes", {
       Name:   { title: {} },
       Course: { rich_text: {} },
       Date:   { date: {} },
