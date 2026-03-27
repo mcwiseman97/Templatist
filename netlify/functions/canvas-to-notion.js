@@ -135,12 +135,45 @@ async function getCanvasCourses(domain, token) {
   return r.body;
 }
 
-async function getUpcomingAssignments(domain, token, courseId) {
+async function getAllAssignments(domain, token, courseId) {
   const r = await httpsRequest(
-    `https://${domain}/api/v1/courses/${courseId}/assignments?bucket=upcoming&per_page=8&order_by=due_at`,
+    `https://${domain}/api/v1/courses/${courseId}/assignments?per_page=100&order_by=due_at`,
     { method: "GET", headers: { Authorization: `Bearer ${token}` } });
   if (r.status !== 200 || !Array.isArray(r.body)) return [];
   return r.body;
+}
+
+async function batchRun(items, size, delay, fn) {
+  const results = [];
+  for (let i = 0; i < items.length; i += size) {
+    results.push(...await Promise.all(items.slice(i, i + size).map(fn)));
+    if (i + size < items.length) await sleep(delay);
+  }
+  return results;
+}
+
+function assignmentType(a) {
+  const types = a.submission_types || [];
+  if (types.includes("online_quiz")) return "Quiz";
+  if (types.includes("discussion_topic")) return "Discussion";
+  if (types.every((t) => t === "none") || types.length === 0) {
+    if (/final/i.test(a.name   || "")) return "Exam";
+    if (/midterm/i.test(a.name || "")) return "Exam";
+    if (/quiz/i.test(a.name    || "")) return "Quiz";
+    if (/lab/i.test(a.name     || "")) return "Lab";
+    if (/project/i.test(a.name || "")) return "Project";
+    return "Other";
+  }
+  return "Assignment";
+}
+
+function isExam(a) { const t = assignmentType(a); return t === "Quiz" || t === "Exam"; }
+
+function assignmentPriority(pts) {
+  if (pts == null) return "Medium";
+  if (pts >= 100)  return "High";
+  if (pts >= 50)   return "Medium";
+  return "Low";
 }
 
 // ─── Notion builders ──────────────────────────────────────────────────────────
@@ -254,17 +287,22 @@ exports.handler = async (event) => {
 
     // ── 2. Fetch Canvas data ──────────────────────────────────────────────────
     const courses = await getCanvasCourses(domain, token);
-    const upcomingByCourse = await Promise.all(
-      courses.map((c) => getUpcomingAssignments(domain, token, c.id))
-    );
-    const allUpcoming = [];
-    courses.forEach((c, i) =>
-      (upcomingByCourse[i] || []).forEach((a) => allUpcoming.push({ course: c, assignment: a }))
-    );
-    const thisWeek  = getThisWeek(allUpcoming);
     const termName  = courses.find((c) => c.term?.name)?.term?.name || "Semester";
-    const termStart = courses.find((c) => c.term?.start_at)?.term?.start_at || null;
-    const termEnd   = courses.find((c) => c.term?.end_at)?.term?.end_at || null;
+
+    // Fetch ALL semester assignments in parallel (no bucket filter)
+    const assignmentsByCourse = await Promise.all(
+      courses.map((c) => getAllAssignments(domain, token, c.id))
+    );
+    const allAssignments = [];
+    courses.forEach((c, i) =>
+      (assignmentsByCourse[i] || []).forEach((a) => allAssignments.push({ course: c, assignment: a }))
+    );
+    allAssignments.sort((a, b) => {
+      const da = a.assignment.due_at ? new Date(a.assignment.due_at) : Infinity;
+      const db = b.assignment.due_at ? new Date(b.assignment.due_at) : Infinity;
+      return da - db;
+    });
+    const thisWeek = getThisWeek(allAssignments);
 
     // ── 3. Create Semester Hub page (empty shell) ─────────────────────────────
     const hubId = await createPage(secret, pageId, `🌸 ${termName} Hub`, "🌸");
@@ -342,6 +380,33 @@ exports.handler = async (event) => {
       }, COVERS[i % COVERS.length])
     ));
 
+    // ── 7b. Populate Assignment Tracker DB (all semester assignments) ──────────
+    await batchRun(allAssignments, 5, 250, ({ course: c, assignment: a }) => {
+      const props = {
+        Name:     { title:     [{ text: { content: a.name || "Unnamed" } }] },
+        Course:   { rich_text: [{ text: { content: c.name || "" } }] },
+        Type:     { select:    { name: assignmentType(a) } },
+        Points:   { number:    a.points_possible ?? null },
+        Status:   { select:    { name: "Not Started" } },
+        Priority: { select:    { name: assignmentPriority(a.points_possible) } },
+      };
+      if (a.due_at) props["Due Date"] = { date: { start: a.due_at.replace("Z", "+00:00") } };
+      return createDbRow(secret, assignmentsDbId, props);
+    });
+
+    // ── 7c. Populate Exams & Quizzes DB ───────────────────────────────────────
+    const exams = allAssignments.filter(({ assignment: a }) => isExam(a));
+    await batchRun(exams, 5, 250, ({ course: c, assignment: a }) => {
+      const props = {
+        Name:   { title:     [{ text: { content: a.name || "Unnamed" } }] },
+        Course: { rich_text: [{ text: { content: c.name || "" } }] },
+        Type:   { select:    { name: assignmentType(a) === "Quiz" ? "Quiz" : "Midterm" } },
+        Status: { select:    { name: "Upcoming" } },
+      };
+      if (a.due_at) props["Date"] = { date: { start: a.due_at.replace("Z", "+00:00") } };
+      return createDbRow(secret, examsDbId, props);
+    });
+
     // ── 8. Build hub page content (navigation columns + goals + schedule) ─────
     const hubBlocks = [
       callout(`${termName}  ·  ${courses.length} course${courses.length !== 1 ? "s" : ""}`, "🌸", "purple_background"),
@@ -408,13 +473,13 @@ exports.handler = async (event) => {
     await appendBlocks(secret, hubId, hubBlocks);
 
     // ── 9. Trigger Stage 2 server-side (fire and forget) ──────────────────────
+    // Stage 2 handles: course note pages, weekly planners, daily planners,
+    // study room, graduation path, notes — assignments are already done in Stage 1.
     triggerStage2(event.headers?.host, {
       canvasToken:      token,
       canvasDomain:     domain,
       notionSecret:     secret,
       classesId,
-      assignmentsDbId,
-      examsDbId,
       weekPlanId,
       dailyPlannersId,
       studyRoomId,
