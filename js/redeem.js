@@ -80,27 +80,14 @@
 
       if (!res1.ok) throw data1;
 
-      // ── Stage 2: Fire-and-forget background population ────────────────────
-      fetch("/.netlify/functions/canvas-populate-background", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          canvasToken,
-          canvasDomain,
-          notionSecret,
-          hubPageId:        data1.hubPageId,
-          assignmentsDbId:  data1.assignmentsDbId,
-          examsDbId:        data1.examsDbId,
-          courses:          data1.courses,
-        }),
-      }).catch(() => {}); // Fire and forget — background function returns 202
+      // Stage 2 is triggered server-side by Stage 1 — no browser call needed.
 
       // ── Show success immediately with the Hub link ────────────────────────
       const count = data1.courseCount;
       successMsg.innerHTML =
         `Your Semester Hub is live with <strong>${count} course${count !== 1 ? "s" : ""}</strong>.<br><br>` +
-        `Your full assignment tracker, course note pages, and semester-long weekly planner ` +
-        `are being built in the background — open Notion in about 2 minutes to see everything populated.`;
+        `Assignments, course notes, weekly planner, and daily planners are being built now — ` +
+        `open Notion in about 2 minutes to see your full semester workspace.`;
       notionLink.href = data1.hubUrl || "https://notion.so";
       showPanel("success-panel");
 

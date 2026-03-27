@@ -1,13 +1,29 @@
 /**
- * Stage 1 — validates credentials, fetches courses, builds the Semester Hub
- * shell (databases + structure), and returns the Hub URL immediately.
- * The browser then fires Stage 2 (canvas-populate-background) to fill in
- * all semester assignments, course notes, and weekly planner pages.
+ * Stage 1 — validates credentials, builds the full Semester Hub shell,
+ * then triggers Stage 2 server-side (no CORS) so assignments/notes/planner
+ * populate in the background while the user opens Notion immediately.
  */
 
 const https = require("https");
+const http  = require("http");
 
-// ─── HTTP ────────────────────────────────────────────────────────────────────
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ─── Aesthetic cover images (Unsplash) ───────────────────────────────────────
+const COVERS = [
+  "https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?w=800",
+  "https://images.unsplash.com/photo-1504701954957-2010ec3bcec1?w=800",
+  "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800",
+  "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800",
+  "https://images.unsplash.com/photo-1475924156734-496f6cac6ec1?w=800",
+  "https://images.unsplash.com/photo-1552083974-186346191183?w=800",
+  "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?w=800",
+  "https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?w=800",
+  "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=800",
+  "https://images.unsplash.com/photo-1540979388789-6cee28a1cdc9?w=800",
+];
+
+// ─── HTTP helper ──────────────────────────────────────────────────────────────
 
 function httpsRequest(url, options, body) {
   return new Promise((resolve, reject) => {
@@ -52,21 +68,54 @@ async function appendBlocks(secret, id, blocks) {
   }
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
 // ─── Block factories ──────────────────────────────────────────────────────────
 
-const rt = (t) => [{ type: "text", text: { content: String(t) } }];
-const h2       = (t)       => ({ object: "block", type: "heading_2",          heading_2:          { rich_text: rt(t) } });
-const p        = (t)       => ({ object: "block", type: "paragraph",          paragraph:          { rich_text: rt(t) } });
-const divider  = ()        => ({ object: "block", type: "divider",            divider:            {} });
-const todo     = (t, done = false) => ({ object: "block", type: "to_do",      to_do:              { rich_text: rt(t), checked: done } });
+const rt  = (t) => [{ type: "text", text: { content: String(t) } }];
+const h2  = (t) => ({ object: "block", type: "heading_2",          heading_2:          { rich_text: rt(t) } });
+const p   = (t) => ({ object: "block", type: "paragraph",          paragraph:          { rich_text: rt(t) } });
+const div = ()  => ({ object: "block", type: "divider",            divider:            {} });
+const todo     = (t, done = false) => ({ object: "block", type: "to_do",              to_do:              { rich_text: rt(t), checked: done } });
 const callout  = (t, emoji, color = "purple_background") => ({
   object: "block", type: "callout",
   callout: { rich_text: rt(t), icon: { type: "emoji", emoji }, color },
 });
 
-// ─── Canvas ───────────────────────────────────────────────────────────────────
+function mentionBullet(label, pageId) {
+  return {
+    object: "block",
+    type: "bulleted_list_item",
+    bulleted_list_item: {
+      rich_text: [
+        {
+          type: "mention",
+          mention: { type: "page", page: { id: pageId } },
+          plain_text: label,
+          href: `https://www.notion.so/${pageId.replace(/-/g, "")}`,
+        },
+      ],
+    },
+  };
+}
+
+function scheduleTable() {
+  const days = ["Time", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  const times = ["8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
+                 "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"];
+  const cellRt = (t) => [{ type: "text", text: { content: t } }];
+  const rows = [
+    { object: "block", type: "table_row", table_row: { cells: days.map((d) => cellRt(d)) } },
+    ...times.map((t) => ({
+      object: "block", type: "table_row",
+      table_row: { cells: [cellRt(t), cellRt(""), cellRt(""), cellRt(""), cellRt(""), cellRt("")] },
+    })),
+  ];
+  return {
+    object: "block", type: "table",
+    table: { table_width: 6, has_column_header: true, has_row_header: true, children: rows },
+  };
+}
+
+// ─── Canvas helpers ───────────────────────────────────────────────────────────
 
 async function validateCanvas(domain, token) {
   const r = await httpsRequest(`https://${domain}/api/v1/users/self`,
@@ -88,7 +137,7 @@ async function getCanvasCourses(domain, token) {
 
 async function getUpcomingAssignments(domain, token, courseId) {
   const r = await httpsRequest(
-    `https://${domain}/api/v1/courses/${courseId}/assignments?bucket=upcoming&per_page=10&order_by=due_at`,
+    `https://${domain}/api/v1/courses/${courseId}/assignments?bucket=upcoming&per_page=8&order_by=due_at`,
     { method: "GET", headers: { Authorization: `Bearer ${token}` } });
   if (r.status !== 200 || !Array.isArray(r.body)) return [];
   return r.body;
@@ -127,11 +176,13 @@ async function createDatabase(secret, parentId, title, properties) {
   return r.body.id;
 }
 
-async function createDbRow(secret, dbId, properties) {
-  return nPost(secret, "pages", { parent: { database_id: dbId }, properties });
+async function createDbRow(secret, dbId, properties, cover) {
+  const body = { parent: { database_id: dbId }, properties };
+  if (cover) body.cover = { type: "external", external: { url: cover } };
+  return nPost(secret, "pages", body);
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Date helpers ─────────────────────────────────────────────────────────────
 
 function shortDate(iso) {
   if (!iso) return "No due date";
@@ -146,6 +197,32 @@ function getThisWeek(all) {
     const d = new Date(a.due_at);
     return d >= now && d <= end;
   });
+}
+
+// ─── Server-side Stage 2 trigger ─────────────────────────────────────────────
+
+function triggerStage2(eventHost, payload) {
+  const payloadStr = JSON.stringify(payload);
+  const isLocal    = (eventHost || "").includes("localhost");
+  const httpMod    = isLocal ? http : https;
+  const host       = eventHost || "localhost:8080";
+  const [hostname, port] = host.split(":");
+
+  const options = {
+    hostname,
+    port:   port ? parseInt(port) : (isLocal ? 80 : 443),
+    path:   "/.netlify/functions/canvas-populate-background",
+    method: "POST",
+    headers: {
+      "Content-Type":   "application/json",
+      "Content-Length": Buffer.byteLength(payloadStr),
+    },
+  };
+
+  const req = httpMod.request(options);
+  req.on("error", () => {}); // Swallow errors — fire and forget
+  req.write(payloadStr);
+  req.end();
 }
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
@@ -171,11 +248,11 @@ exports.handler = async (event) => {
   const secret = notionSecret.trim();
 
   try {
-    // ── Validate ─────────────────────────────────────────────────────────────
+    // ── 1. Validate ───────────────────────────────────────────────────────────
     await validateCanvas(domain, token);
     await validateNotion(secret, pageId);
 
-    // ── Fetch courses + quick upcoming ───────────────────────────────────────
+    // ── 2. Fetch Canvas data ──────────────────────────────────────────────────
     const courses = await getCanvasCourses(domain, token);
     const upcomingByCourse = await Promise.all(
       courses.map((c) => getUpcomingAssignments(domain, token, c.id))
@@ -184,32 +261,38 @@ exports.handler = async (event) => {
     courses.forEach((c, i) =>
       (upcomingByCourse[i] || []).forEach((a) => allUpcoming.push({ course: c, assignment: a }))
     );
-    const thisWeek = getThisWeek(allUpcoming);
+    const thisWeek  = getThisWeek(allUpcoming);
+    const termName  = courses.find((c) => c.term?.name)?.term?.name || "Semester";
+    const termStart = courses.find((c) => c.term?.start_at)?.term?.start_at || null;
+    const termEnd   = courses.find((c) => c.term?.end_at)?.term?.end_at || null;
 
-    // ── Determine semester name from term data ────────────────────────────────
-    const termName = courses.find((c) => c.term?.name)?.term?.name || "Semester";
+    // ── 3. Create Semester Hub page (empty shell) ─────────────────────────────
+    const hubId = await createPage(secret, pageId, `🌸 ${termName} Hub`, "🌸");
 
-    // ── Create Semester Hub page ─────────────────────────────────────────────
-    const topBlocks = [
-      callout(
-        `${courses.length} course${courses.length !== 1 ? "s" : ""}  •  Use the Calendar view on Assignments to see your full semester at a glance.`,
-        "🎓"
-      ),
-      divider(),
-      h2("📅  Due This Week"),
-      ...(thisWeek.length === 0
-        ? [callout("Nothing due this week — you're ahead!", "✅", "green_background")]
-        : thisWeek.map(({ course: c, assignment: a }) =>
-            todo(`${a.name}  ·  ${c.name}  ·  ${shortDate(a.due_at)}`)
-          )),
-      divider(),
-    ];
+    // ── 4. Create all 8 sub-pages (capture IDs for navigation mentions) ───────
+    const [
+      classesId, assignmentsPageId, weekPlanId,
+      dailyPlannersId, calendarId, studyRoomId,
+      graduationId, notesId,
+    ] = await Promise.all([
+      createPage(secret, hubId, "📚 Classes",          "📚", [callout("Your per-course note pages will appear here as they're built.", "⏳", "gray_background")]),
+      createPage(secret, hubId, "📝 Assignments",      "📝", [callout("Your assignment and exam databases will appear here as they're built.", "⏳", "gray_background")]),
+      createPage(secret, hubId, "📅 Week Plan",        "📅", [callout("Your weekly planner pages will appear here as they're built.", "⏳", "gray_background")]),
+      createPage(secret, hubId, "📆 Daily Planners",   "📆", [callout("Your daily planner pages will appear here as they're built.", "⏳", "gray_background")]),
+      createPage(secret, hubId, "🗓️ Monthly Calendar", "🗓️", [
+        callout("To see your assignments on a monthly calendar:", "📅", "blue_background"),
+        p("1. Open the 📝 Assignments page"),
+        p("2. Click '+ Add a view' on the Assignment Tracker database"),
+        p("3. Choose 'Calendar' → set date field to 'Due Date'"),
+        p("Your full semester will appear as a visual calendar instantly."),
+      ]),
+      createPage(secret, hubId, "📖 Study Room",       "📖"),
+      createPage(secret, hubId, "🎓 Graduation Path",  "🎓"),
+      createPage(secret, hubId, "📓 Notes",            "📓"),
+    ]);
 
-    const hubId = await createPage(secret, pageId, `🎓 ${termName} Hub`, "🎓", topBlocks);
-
-    // ── Courses section + database ────────────────────────────────────────────
-    await appendBlocks(secret, hubId, [h2("📚  My Courses")]);
-    const coursesDbId = await createDatabase(secret, hubId, "📚 Courses", {
+    // ── 5. Create Courses gallery database (child of hub, with cover images) ──
+    const coursesDbId = await createDatabase(secret, hubId, "📚 All Courses", {
       Name:          { title: {} },
       "Course Code": { rich_text: {} },
       Instructor:    { rich_text: {} },
@@ -220,25 +303,8 @@ exports.handler = async (event) => {
       "Canvas URL":  { url: {} },
     });
 
-    // Populate courses in parallel (small count, won't hit rate limit)
-    await Promise.all(courses.map((c) =>
-      createDbRow(secret, coursesDbId, {
-        Name:          { title:     [{ text: { content: c.name || "Unnamed" } }] },
-        "Course Code": { rich_text: [{ text: { content: c.course_code || "" } }] },
-        Instructor:    { rich_text: [{ text: { content: c.teachers?.[0]?.display_name || "" } }] },
-        Term:          { rich_text: [{ text: { content: c.term?.name || "" } }] },
-        Status:        { select: { name: "Active" } },
-        Grade:         { select: { name: "Pending" } },
-        "Canvas URL":  { url: `https://${domain}/courses/${c.id}` },
-      })
-    ));
-
-    // ── Assignments section + empty database ──────────────────────────────────
-    await appendBlocks(secret, hubId, [
-      h2("📝  Assignment Tracker"),
-      p("💡 Tip: Open this database → Add a view → Calendar → Due Date to see your full semester on a calendar."),
-    ]);
-    const assignmentsDbId = await createDatabase(secret, hubId, "📝 Assignment Tracker", {
+    // ── 6. Create Assignments + Exams databases under Assignments sub-page ────
+    const assignmentsDbId = await createDatabase(secret, assignmentsPageId, "📝 Assignment Tracker", {
       Name:       { title: {} },
       Course:     { rich_text: {} },
       "Due Date": { date: {} },
@@ -253,46 +319,125 @@ exports.handler = async (event) => {
       Notes: { rich_text: {} },
     });
 
-    // ── Exams & Quizzes section + empty database ──────────────────────────────
-    await appendBlocks(secret, hubId, [h2("🎯  Exams & Quizzes")]);
-    const examsDbId = await createDatabase(secret, hubId, "🎯 Exams & Quizzes", {
-      Name:    { title: {} },
-      Course:  { rich_text: {} },
-      Date:    { date: {} },
-      Type:    { select: { options: ["Quiz","Midterm","Final","Lab Practical","Other"].map((n) => ({ name: n })) } },
-      Status:  { select: { options: ["Upcoming","Studying","Ready","Completed"].map((n) => ({ name: n })) } },
-      Score:   { number: { format: "number" } },
-      Notes:   { rich_text: {} },
+    const examsDbId = await createDatabase(secret, assignmentsPageId, "🎯 Exams & Quizzes", {
+      Name:   { title: {} },
+      Course: { rich_text: {} },
+      Date:   { date: {} },
+      Type:   { select: { options: ["Quiz","Midterm","Final","Lab Practical","Other"].map((n) => ({ name: n })) } },
+      Status: { select: { options: ["Upcoming","Studying","Ready","Completed"].map((n) => ({ name: n })) } },
+      Score:  { number: { format: "number" } },
+      Notes:  { rich_text: {} },
     });
 
-    // ── Placeholder headings for Stage 2 sections ─────────────────────────────
-    await appendBlocks(secret, hubId, [
-      h2("📓  Course Notes"),
-      p("⏳ Building your course note pages..."),
-      h2("🗓️  Weekly Planner"),
-      p("⏳ Building your full semester planner..."),
-    ]);
+    // ── 7. Populate Courses DB (parallel, with cover images) ──────────────────
+    await Promise.all(courses.map((c, i) =>
+      createDbRow(secret, coursesDbId, {
+        Name:          { title:     [{ text: { content: c.name || "Unnamed" } }] },
+        "Course Code": { rich_text: [{ text: { content: c.course_code || "" } }] },
+        Instructor:    { rich_text: [{ text: { content: c.teachers?.[0]?.display_name || "" } }] },
+        Term:          { rich_text: [{ text: { content: c.term?.name || "" } }] },
+        Status:        { select: { name: "Active" } },
+        Grade:         { select: { name: "Pending" } },
+        "Canvas URL":  { url: `https://${domain}/courses/${c.id}` },
+      }, COVERS[i % COVERS.length])
+    ));
+
+    // ── 8. Build hub page content (navigation columns + goals + schedule) ─────
+    const hubBlocks = [
+      callout(`${termName}  ·  ${courses.length} course${courses.length !== 1 ? "s" : ""}`, "🌸", "purple_background"),
+      div(),
+
+      // Three-column layout: Navigation | spacer | Semester Goals
+      {
+        object: "block", type: "column_list",
+        column_list: {
+          children: [
+            {
+              type: "column",
+              column: {
+                children: [
+                  h2("🗺️  Navigation"),
+                  div(),
+                  mentionBullet("📚  Classes",          classesId),
+                  mentionBullet("📝  Assignments",      assignmentsPageId),
+                  mentionBullet("📅  Week Plan",        weekPlanId),
+                  mentionBullet("📆  Daily Planners",   dailyPlannersId),
+                  mentionBullet("🗓️  Monthly Calendar", calendarId),
+                  mentionBullet("📖  Study Room",       studyRoomId),
+                  mentionBullet("🎓  Graduation Path",  graduationId),
+                  mentionBullet("📓  Notes",            notesId),
+                ],
+              },
+            },
+            {
+              type: "column",
+              column: {
+                children: [
+                  h2("🎯  Semester Goals"),
+                  div(),
+                  todo("Earn a B or higher in every class"),
+                  todo("Stay on top of assignments week by week"),
+                  todo("Attend office hours when I'm struggling"),
+                  todo(" "),
+                  todo(" "),
+                  todo(" "),
+                ],
+              },
+            },
+          ],
+        },
+      },
+
+      div(),
+
+      // Due This Week
+      h2("📅  Due This Week"),
+      ...(thisWeek.length === 0
+        ? [callout("Nothing due this week — you're ahead!", "✅", "green_background")]
+        : thisWeek.map(({ course: c, assignment: a }) =>
+            todo(`${a.name}  ·  ${c.name}  ·  ${shortDate(a.due_at)}`)
+          )
+      ),
+
+      div(),
+      h2("📅  Class Schedule"),
+      p("Fill in your class times below."),
+      scheduleTable(),
+    ];
+
+    await appendBlocks(secret, hubId, hubBlocks);
+
+    // ── 9. Trigger Stage 2 server-side (fire and forget) ──────────────────────
+    triggerStage2(event.headers?.host, {
+      canvasToken:      token,
+      canvasDomain:     domain,
+      notionSecret:     secret,
+      classesId,
+      assignmentsDbId,
+      examsDbId,
+      weekPlanId,
+      dailyPlannersId,
+      studyRoomId,
+      graduationId,
+      notesId,
+      courses: courses.map((c) => ({
+        id:          c.id,
+        name:        c.name        || "Unnamed Course",
+        course_code: c.course_code || "",
+        instructor:  c.teachers?.[0]?.display_name || "",
+        term_name:   c.term?.name    || "",
+        term_start:  c.term?.start_at || null,
+        term_end:    c.term?.end_at   || null,
+      })),
+    });
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        success: true,
+        success:     true,
         courseCount: courses.length,
-        hubPageId: hubId,
-        hubUrl: `https://notion.so/${hubId.replace(/-/g, "")}`,
-        // Pass these to Stage 2
-        assignmentsDbId,
-        examsDbId,
-        courses: courses.map((c) => ({
-          id:          c.id,
-          name:        c.name,
-          course_code: c.course_code,
-          instructor:  c.teachers?.[0]?.display_name || "",
-          term_name:   c.term?.name || "",
-          term_start:  c.term?.start_at || null,
-          term_end:    c.term?.end_at || null,
-        })),
+        hubUrl:      `https://notion.so/${hubId.replace(/-/g, "")}`,
       }),
     };
   } catch (err) {
