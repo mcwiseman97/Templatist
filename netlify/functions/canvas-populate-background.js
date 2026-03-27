@@ -487,18 +487,19 @@ exports.handler = async (event) => {
     await batchRun(courses, 2, 450, (course, _i) => {
       const idx    = courses.indexOf(course);
       const blocks = courseNoteBlocks(course, assignmentsByCourse[idx] || [], domain);
-      return createPage(secret, classesId, course.name || "Course", "📖", blocks);
+      return createPage(secret, classesId, course.name || "Course", "📖", blocks); // icon only, no emoji in title
     });
 
-    // ── 5. Per-week planner pages (full semester) ─────────────────────────
+    // ── 5. Per-week planner pages (full semester, sequential for correct order) ─
     const weeks = getSemesterWeeks(courses);
-    await batchRun(weeks, 2, 500, ({ sunday, weekNum }) => {
+    for (const { sunday, weekNum } of weeks) {
       const weekAssignments = assignmentsForWeek(allAssignments, sunday);
       const blocks = weekPageBlocks(weekNum, sunday, weekAssignments);
-      return createPage(secret, weekPlanId, `Week ${weekNum}  ·  ${weekRange(sunday)}`, "📅", blocks);
-    });
+      await createPage(secret, weekPlanId, `Week ${weekNum}  ·  ${weekRange(sunday)}`, "📅", blocks);
+      await sleep(300);
+    }
 
-    // ── 6. Daily planner pages (next 20 weekdays) ─────────────────────────
+    // ── 6. Daily planner pages (next 20 weekdays, sequential for correct order) ─
     const weekdays = [];
     const cursor = new Date();
     cursor.setHours(0, 0, 0, 0);
@@ -509,10 +510,11 @@ exports.handler = async (event) => {
       cursor.setDate(cursor.getDate() + 1);
     }
 
-    await batchRun(weekdays, 3, 400, (date) => {
+    for (const date of weekdays) {
       const label = date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-      return createPage(secret, dailyPlannersId, label, "📆", dailyPlannerBlocks(label));
-    });
+      await createPage(secret, dailyPlannersId, label, "📆", dailyPlannerBlocks(label));
+      await sleep(300);
+    }
 
     // ── 7. Build out static section pages ────────────────────────────────
     await appendBlocks(secret, studyRoomId,  studyRoomBlocks());
