@@ -53,6 +53,21 @@
     showPanel("loading-panel");
     loadingMessage.textContent = "Validating Canvas credentials…";
 
+    // Cycle loading messages while the request runs
+    const loadingSteps = [
+      "Validating Canvas credentials…",
+      "Validating Notion credentials…",
+      "Fetching your courses and assignments…",
+      "Building your Notion workspace…",
+      "Creating assignment pages…",
+      "Almost there…",
+    ];
+    let stepIndex = 0;
+    const stepInterval = setInterval(() => {
+      stepIndex = Math.min(stepIndex + 1, loadingSteps.length - 1);
+      loadingMessage.textContent = loadingSteps[stepIndex];
+    }, 2500);
+
     try {
       const response = await fetch("/.netlify/functions/canvas-to-notion", {
         method: "POST",
@@ -60,20 +75,21 @@
         body: JSON.stringify({ canvasToken, canvasDomain, notionPageId, notionSecret }),
       });
 
+      clearInterval(stepInterval);
       const data = await response.json();
 
       if (!response.ok) {
         throw data;
       }
 
-      // Update loading message while we waited for the build
-      loadingMessage.textContent = "Building your Notion database…";
-
-      const count = data.courseCount;
-      successMessage.textContent = `Done! Created your Semester Dashboard with ${count} active course${count !== 1 ? "s" : ""}.`;
+      const courses = data.courseCount;
+      const assignments = data.assignmentCount;
+      successMessage.textContent =
+        `Built your Notion workspace with ${courses} course${courses !== 1 ? "s" : ""} and ${assignments} upcoming assignment${assignments !== 1 ? "s" : ""}.`;
       notionLink.href = data.notionUrl || "https://notion.so";
       showPanel("success-panel");
     } catch (err) {
+      clearInterval(stepInterval);
       const code = err && err.error;
       const msg = errorMessages[code] === null
         ? err.message
