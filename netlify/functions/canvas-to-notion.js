@@ -80,23 +80,6 @@ const callout  = (t, emoji, color = "purple_background") => ({
   callout: { rich_text: rt(t), icon: { type: "emoji", emoji }, color },
 });
 
-function mentionBullet(label, pageId) {
-  return {
-    object: "block",
-    type: "bulleted_list_item",
-    bulleted_list_item: {
-      rich_text: [
-        {
-          type: "mention",
-          mention: { type: "page", page: { id: pageId } },
-          plain_text: label,
-          href: `https://www.notion.so/${pageId.replace(/-/g, "")}`,
-        },
-      ],
-    },
-  };
-}
-
 function scheduleTable() {
   const days = ["Time", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
   const times = ["8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
@@ -345,51 +328,19 @@ exports.handler = async (event) => {
       }, COVERS[i % COVERS.length])
     ));
 
-    // ── 8. Build hub page content (navigation columns + goals + schedule) ─────
+    // ── 8. Build hub page content (goals + schedule) ──────────────────────────
+    // Navigation is handled by Notion's native child-page listing at the top.
     const hubBlocks = [
       callout(`${termName}  ·  ${courses.length} course${courses.length !== 1 ? "s" : ""}`, "🌸", "purple_background"),
       div(),
 
-      // Three-column layout: Navigation | spacer | Semester Goals
-      {
-        object: "block", type: "column_list",
-        column_list: {
-          children: [
-            {
-              type: "column",
-              column: {
-                children: [
-                  h2("🗺️  Navigation"),
-                  div(),
-                  mentionBullet("📚  Classes",          classesId),
-                  mentionBullet("📝  Assignments",      assignmentsPageId),
-                  mentionBullet("📅  Week Plan",        weekPlanId),
-                  mentionBullet("📆  Daily Planners",   dailyPlannersId),
-                  mentionBullet("🗓️  Monthly Calendar", calendarId),
-                  mentionBullet("📖  Study Room",       studyRoomId),
-                  mentionBullet("🎓  Graduation Path",  graduationId),
-                  mentionBullet("📓  Notes",            notesId),
-                ],
-              },
-            },
-            {
-              type: "column",
-              column: {
-                children: [
-                  h2("🎯  Semester Goals"),
-                  div(),
-                  todo("Earn a B or higher in every class"),
-                  todo("Stay on top of assignments week by week"),
-                  todo("Attend office hours when I'm struggling"),
-                  todo(" "),
-                  todo(" "),
-                  todo(" "),
-                ],
-              },
-            },
-          ],
-        },
-      },
+      h2("🎯  Semester Goals"),
+      todo("Earn a B or higher in every class"),
+      todo("Stay on top of assignments week by week"),
+      todo("Attend office hours when I'm struggling"),
+      todo(" "),
+      todo(" "),
+      todo(" "),
 
       div(),
 
