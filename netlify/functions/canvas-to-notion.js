@@ -165,7 +165,7 @@ exports.handler = async (event) => {
     };
   }
 
-  const cleanDomain = canvasDomain.trim().replace(/^https?:\/\//, "");
+  const cleanDomain = canvasDomain.trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
   const cleanPageId = notionPageId.trim().replace(/-/g, "");
   const cleanToken = canvasToken.trim();
   const cleanSecret = notionSecret.trim();

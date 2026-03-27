@@ -24,7 +24,7 @@
     canvas_domain: null, // use server message (includes the domain)
     canvas: "Could not retrieve your Canvas courses. Check your token and domain.",
     notion_auth: "Invalid Notion integration secret. Check your integration at notion.so/my-integrations.",
-    notion_page: null, // use server message (includes page guidance)
+    notion_page: "Page not found. In Notion, open your target page → click ··· (top right) → Connections → select your integration. Then try again.",
     notion: "Could not create your Notion database. Make sure your integration is shared with the target page.",
     all_fields: "Please fill in all four fields.",
     server: "An unexpected error occurred. Please try again.",
